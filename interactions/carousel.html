@@ -25,8 +25,8 @@ advanced_tab:
         - "optional: <code>data-ur-autoscroll</code>: enabled/<em>disabled</em> (automatically scroll with interval)"
         - "optional: <code>data-ur-autoscroll-delay</code>: integer (autoscroll delay in milliseconds, default: <em>5000</em>)"
         - "optional: <code>data-ur-autoscroll-dir</code>: <em>next</em>/prev (specify autoscroll direction)"
-        - "optional: <code>data-ur-android3d</code>: enabled/disabled (specify translate3d use on Android 1.6-2.3)"
-        - "optional: <code>data-ur-fill</code>: integer (force n carousel items to fit in container width)"
+        - "optional: <code>data-ur-transform3d</code>: enabled/disabled (force use of translate3d on all devices)"
+        - "optional: <code>data-ur-fill</code>: integer (force n carousel items to fit in container width, default: <em>0</em>)"
         - "optional: <code>data-ur-center</code>: enabled/<em>disabled</em> (horizontally center current item)"
     scroll_container:
       - "this element should wrap the scrolling items on the carousel. This or the set needs <code>position: relative</code>."
@@ -65,6 +65,9 @@ js_tab:
       infinite: false // data-ur-* options
     });
   Instance:
+    update(options):
+      - "force the carousel to recalculate positioning"
+      - "optional argument for updating certain options, e.g., <code>{center: true, fill: 2}</code>"
     jumpToIndex(index): forces the carousel to jump to the specified (zero based) index
     autoscrollStart(): start autoscroll
     autoscrollStop(): stop autoscroll
