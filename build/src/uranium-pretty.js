@@ -954,7 +954,8 @@ interactions.carousel = function ( fragment, options ) {
       click: true,            // used for determining if item is clicked on touchscreens
       snapping: false,        // true if carousel is currently snapping, flag for users' convenience
       lock: null,             // used for determining horizontal/vertical dragging motion on touchscreens
-      touched: false          // true when user is currently touching/dragging
+      touched: false,         // true when user is currently touching/dragging
+      moved: false            // true when user has touched and moved an element (if false, they are just touching & not swiping)
     };
 
     self.options = {
@@ -967,7 +968,8 @@ interactions.carousel = function ( fragment, options ) {
       infinite: true,           // loops the last item back to first and vice versa
       speed: 1.1,               // determines how "fast" carousel snaps, should probably be deprecated
       transform3d: transform3d, // determines if translate3d() or translate() is used
-      touch: true               // determines if carousel can be dragged e.g. when user only wants buttons to be used
+      touch: true,              // determines if carousel can be dragged e.g. when user only wants buttons to be used
+      dragAndDrop: true         // true enables code that allows for drag and drop. This code can potentially affect touch events propegation isn't stopped by the drag'n'drop element
     };
 
     $.extend(self.options, options);
@@ -988,6 +990,7 @@ interactions.carousel = function ( fragment, options ) {
     var allItemsWidth;                  // sum of all items' widths (excluding clones)
     var autoscrollId;                   // used for autoscrolling timeout
     var momentumId;                     // used for snapping timeout
+//    var slope = 0;
 
     var viewport = $container.outerWidth();
 
@@ -1030,7 +1033,7 @@ interactions.carousel = function ( fragment, options ) {
             }
             else {
               stifle(event);
-              event.stopImmediatePropagation();
+//              event.stopImmediatePropagation();
             }
           };
         });
@@ -1090,7 +1093,7 @@ interactions.carousel = function ( fragment, options ) {
       $container.attr("data-ur-autoscroll-dir", self.options.autoscrollForward ? "next" : "prev");
 
       // read boolean attributes
-      $.each(["autoscroll", "center", "infinite", "touch"], function(_, name) {
+      $.each(["autoscroll", "center", "infinite", "touch", "fill-container"], function(_, name) {
         var dashName = "data-ur-" + name.replace(/[A-Z]/g, function(i) { return "-" + i.toLowerCase()});
         var value = $container.attr(dashName);
         if (value == "enabled")
@@ -1211,6 +1214,8 @@ interactions.carousel = function ( fragment, options ) {
 
         updateDots();
         updateIndex(self.options.center ? self.itemIndex + self.options.cloneLength : self.itemIndex);
+      } else if (oldCount === 0) {
+        return;
       }
 
       viewport = $container.outerWidth();
@@ -1295,7 +1300,7 @@ interactions.carousel = function ( fragment, options ) {
       self.itemIndex = newIndex;
       if (self.itemIndex < 0)
         self.itemIndex = 0;
-      else if (self.itemIndex > lastIndex)
+      else if (lastIndex > -1 && self.itemIndex > lastIndex)
         self.itemIndex = lastIndex;
 
       var realIndex = self.itemIndex;
@@ -1325,6 +1330,25 @@ interactions.carousel = function ( fragment, options ) {
       self.flag.touched = true;
       self.flag.lock = null;
       self.flag.click = true;
+      self.flag.moved = false; // determines if mouse has moved a significant amount
+
+      if (self.options.dragAndDrop) {
+        window.setTimeout(function() {
+          if (!self.flag.moved) { //} || slope > .75) {
+            // means that the user is just pressing down and that we should allow for drag 'n' drop events
+            finishSwipe(e);
+          } else {
+            // stop any drag events so that we can trigger end of drag'n'drop
+            $(document)
+              .unbind(moveEvent + ".carousel", continueSwipe)
+              .unbind(upEvent + ".carousel", finishSwipe);
+            $(e.target).trigger("mouseup");
+            $(document)
+              .bind(moveEvent + ".carousel", continueSwipe)
+              .bind(upEvent + ".carousel", finishSwipe);
+          }
+        }, 100);
+      }
 
       coords = getEventCoords(e);
       
@@ -1342,6 +1366,9 @@ interactions.carousel = function ( fragment, options ) {
       if (Math.abs(startCoords.y - coords.y) + Math.abs(startCoords.x - coords.x) > 0)
         self.flag.click = false;
 
+ //     if (self.options.dragAndDrop) {
+ //       slope = Math.abs((startCoords.y - coords.y)/(startCoords.x - coords.x));
+ //     }
       if (touchscreen) {
         var slope = Math.abs((startCoords.y - coords.y)/(startCoords.x - coords.x));
         if (self.flag.lock) {
@@ -1361,7 +1388,12 @@ interactions.carousel = function ( fragment, options ) {
       stifle(e);
 
       if (coords !== null) {
-        var dist = startingOffset + swipeDist(startCoords, coords); // new translate() value, usually negative
+        var distanceFromStart = swipeDist(startCoords, coords);
+        if (!self.flag.moved && Math.abs(distanceFromStart) > 10) {
+          self.flag.moved = true;
+        }
+
+        var dist = startingOffset + distanceFromStart; // new translate() value, usually negative
         
         var threshold = -dist;
         if (self.options.center)
@@ -1602,6 +1634,7 @@ interactions.carousel = function ( fragment, options ) {
     else
       initialize();
 
+    $(window).on("load.ur.carousel", self.update);
   }
 };
 window.Uranium = {lib: interactions};
